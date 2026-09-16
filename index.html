@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>911</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      background: #8aa9cb;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #ui-card {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      padding: 24px 36px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      z-index: 100;
+      text-align: center;
+      user-select: none;
+    }
+
+    #title-text {
+      font-size: 52px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+
+    #subtitle-text {
+      font-size: 16px;
+      color: #333333;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    #hud {
+      position: fixed;
+      left: 14px;
+      top: 14px;
+      z-index: 20;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      color: white;
+      font-size: 13px;
+      line-height: 1.5;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    #inventory-hud {
+      position: fixed;
+      left: 14px;
+      top: 112px;
+      z-index: 20;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.55);
+      color: white;
+      font-size: 13px;
+      line-height: 1.6;
+      user-select: none;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    #score {
+      position: fixed;
+      right: 16px;
+      top: 14px;
+      z-index: 20;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 0 2px 5px rgba(0, 0, 0, 0.65);
+      user-select: none;
+      pointer-events: none;
+    }
+
+    #shop-modal {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 340px;
+      padding: 24px;
+      border-radius: 12px;
+      background: rgba(20, 25, 35, 0.95);
+      color: white;
+      border: 2px solid #3498db;
+      box-shadow: 0 0 30px rgba(0, 150, 255, 0.4);
+      z-index: 150;
+      display: none;
+      text-align: center;
+      user-select: none;
+      backdrop-filter: blur(8px);
+    }
+
+    .shop-item {
+      margin: 15px 0;
+      padding: 12px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      text-align: left;
+    }
+
+    .shop-btn {
+      background: #2ecc71;
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    .shop-btn:hover:not(:disabled) {
+      background: #27ae60;
+    }
+
+    .shop-btn:disabled {
+      background: #555;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .close-shop-btn {
+      margin-top: 10px;
+      background: #e74c3c;
+      border: none;
+      color: white;
+      padding: 8px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+    }
+
+    .close-shop-btn:hover {
+      background: #c0392b;
+    }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <div id="ui-card">
+    <div id="title-text">Loading Aircraft... </div>
+    <div id="subtitle-text">Please wait</div>
+  </div>
+
+  <div id="hud">
+    A / D = Turn & Bank<br>
+    SHIFT + A / D = Full 90° Knife-Edge Roll<br>
+    W / S = Pitch Up / Down
+  </div>
+
+  <div id="inventory-hud">
+    🚀 Missiles: <span id="hud-missiles">0</span> [Q]<br>
+    🛡️ Shields: <span id="hud-shields">0</span> [E]
+    <div id="hud-shield-timer" style="display:none; color: #00e5ff; font-weight: bold;">
+      🛡️ Active: <span id="shield-time">0.0</span>s
+    </div>
+  </div>
+
+  <div id="score">0</div>
+
+  <div id="shop-modal">
+    <h2 style="margin-top: 0; color: #3498db;">AIRCRAFT SHOP</h2>
+    <p>Points Available: <span id="shop-points" style="color: #2ecc71; font-weight: bold;">0</span></p>
+
+    <div class="shop-item">
+      <div>
+        <strong>🚀 Missile</strong><br>
+        <small style="color: #bbb;">Destroys building ahead</small>
+      </div>
+      <button id="buy-missile-btn" class="shop-btn">Buy (20 Pts)</button>
+    </div>
+
+    <div class="shop-item">
+      <div>
+        <strong>🛡️ Shield (+10s)</strong><br>
+        <small style="color: #bbb;">Absorbs building crashes</small>
+      </div>
+      <button id="buy-shield-btn" class="shop-btn">Buy (35 Pts)</button>
+    </div>
+
+    <button id="close-shop-btn" class="close-shop-btn">Close (or Press F)</button>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { Sky } from "three/addons/objects/Sky.js";
+
+    const app = document.getElementById("app");
+    const uiCard = document.getElementById("ui-card");
+    const titleText = document.getElementById("title-text");
+    const subtitleText = document.getElementById("subtitle-text");
+    const scoreElement = document.getElementById("score");
+
+    const hudMissiles = document.getElementById("hud-missiles");
+    const hudShields = document.getElementById("hud-shields");
+    const hudShieldTimer = document.getElementById("hud-shield-timer");
+    const shieldTimeSpan = document.getElementById("shield-time");
+
+    const shopModal = document.getElementById("shop-modal");
+    const shopPoints = document.getElementById("shop-points");
+    const buyMissileBtn = document.getElementById("buy-missile-btn");
+    const buyShieldBtn = document.getElementById("buy-shield-btn");
+    const closeShopBtn = document.getElementById("close-shop-btn");
+
+    let gameState = "loading";
+
+    let missilesCount = 0;
+    let shieldsCount = 0;
+    let shieldTimer = 0;
+    let missilePrice = 20;
+    let shieldPrice = 35;
+    let isShopOpen = false;
+
+    const scene = new THREE.Scene();
+    const fogColor = new THREE.Color(0x91b2d6);
+    scene.fog = new THREE.FogExp2(fogColor, 0.0012);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 8000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    app.appendChild(renderer.domElement);
+
+    const sky = new Sky();
+    sky.scale.setScalar(10000);
+    scene.add(sky);
+
+    const skyUniforms = sky.material.uniforms;
+    skyUniforms["turbidity"].value = 6;
+    skyUniforms["rayleigh"].value = 0.5;
+    skyUniforms["mieCoefficient"].value = 0.003;
+    skyUniforms["mieDirectionalG"].value = 0.8;
+
+    const sun = new THREE.Vector3();
+    sun.setFromSphericalCoords(1, Math.PI / 2 - THREE.MathUtils.degToRad(22), THREE.MathUtils.degToRad(150));
+    skyUniforms["sunPosition"].value.copy(sun);
+
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x334455, 1.8);
+    scene.add(hemisphereLight);
+
+    const keyLight = new THREE.DirectionalLight(0xfff0d5, 2.5);
+    keyLight.position.set(3000, 6000, 3000);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x88add2, 1.2);
+    fillLight.position.set(-3000, 2500, -3000);
+    scene.add(fillLight);
+
+    const world = new THREE.Group();
+    scene.add(world);
+
+    const aircraftRoot = new THREE.Group();
+    scene.add(aircraftRoot);
+
+    const debrisGroup = new THREE.Group();
+    scene.add(debrisGroup);
+
+    let aircraft = null;
+    let score = 0;
+    let currentWorldSpeed = 210;
+
+    const GAME = {
+      altitude: 75,
+      maxX: 55,
+      moveSpeed: 60,
+      baseWorldSpeed: 210,
+      maxWorldSpeed: 520,
+      speedAcceleration: 1.25,
+      spawnZ: -2200,
+      despawnZ: 150,
+      spacing: 240,
+      buildingWidth: 26,
+      buildingDepth: 26,
+      buildingHeight: 500,
+      collisionWidth: 8,
+      collisionDepth: 10
+    };
+
+    const shieldGeo = new THREE.SphereGeometry(11, 16, 16);
+    const shieldMat = new THREE.MeshStandardMaterial({
+      color: 0x00e5ff,
+      emissive: 0x00aaff,
+      emissiveIntensity: 0.8,
+      transparent: true,
+      opacity: 0.38,
+      side: THREE.DoubleSide
+    });
+    const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+    shieldMesh.position.set(0, 0, 0);
+    shieldMesh.visible = false;
+    aircraftRoot.add(shieldMesh);
+
+    const powerUpGeo = new THREE.SphereGeometry(3, 12, 12);
+    const powerUpRingGeo = new THREE.TorusGeometry(4.5, 0.25, 6, 16);
+
+    const pointMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 0.8 });
+    const missilePowerMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff1100, emissiveIntensity: 0.8 });
+    const shieldPowerMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x0088ff, emissiveIntensity: 0.8 });
+
+    const missileGeo = new THREE.CylinderGeometry(0.5, 0.8, 6, 8);
+    missileGeo.rotateX(Math.PI / 2);
+    const missileMeshMat = new THREE.MeshStandardMaterial({ color: 0xff2200, emissive: 0xff4400, emissiveIntensity: 0.8, metalness: 0.8 });
+
+    const debrisGeos = [
+      new THREE.BoxGeometry(2.5, 2.5, 2.5),
+      new THREE.BoxGeometry(4, 2, 3),
+      new THREE.BoxGeometry(1.5, 3.5, 2)
+    ];
+
+    const debrisMats = [
+      new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.5 }),
+      new THREE.MeshStandardMaterial({ color: 0x90a4ae, metalness: 0.6 }),
+      new THREE.MeshStandardMaterial({ color: 0xff5500, emissive: 0xff2200, emissiveIntensity: 2.0 })
+    ];
+
+    const powerUps = [];
+    const activeMissiles = [];
+
+    function createGroundFogFloor() {
+      const fogCanvas = document.createElement("canvas");
+      fogCanvas.width = 128;
+      fogCanvas.height = 128;
+      const ctx = fogCanvas.getContext("2d");
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, 128);
+      gradient.addColorStop(0, "rgba(145, 178, 214, 0.0)");
+      gradient.addColorStop(0.4, "rgba(145, 178, 214, 0.85)");
+      gradient.addColorStop(1, "rgba(145, 178, 214, 1.0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 128, 128);
+
+      const fogTex = new THREE.CanvasTexture(fogCanvas);
+
+      const fogGeo = new THREE.PlaneGeometry(3000, 3000);
+      const fogMat = new THREE.MeshBasicMaterial({
+        map: fogTex,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+
+      const fogMesh = new THREE.Mesh(fogGeo, fogMat);
+      fogMesh.rotation.x = -Math.PI / 2;
+      fogMesh.position.y = -20;
+      scene.add(fogMesh);
+    }
+    createGroundFogFloor();
+
+    const facadeMat = new THREE.MeshStandardMaterial({
+      color: 0x90a4ae,
+      roughness: 0.35,
+      metalness: 0.65
+    });
+
+    const darkTrimMat = new THREE.MeshStandardMaterial({
+      color: 0x263238,
+      roughness: 0.5,
+      metalness: 0.3
+    });
+
+    const antennaMat = new THREE.MeshStandardMaterial({
+      color: 0xdce1e5,
+      metalness: 0.9,
+      roughness: 0.2
+    });
+
+    const baseTowerGeo = new THREE.BoxGeometry(GAME.buildingWidth, GAME.buildingHeight, GAME.buildingDepth);
+    const bandGeo = new THREE.BoxGeometry(GAME.buildingWidth + 0.4, 6, GAME.buildingDepth + 0.4);
+
+    const northAntennaTier1 = new THREE.CylinderGeometry(5.5, 6.5, 4, 12);
+    const northAntennaTier2 = new THREE.CylinderGeometry(2.5, 4.5, 10, 12);
+    const northSpireGeo = new THREE.CylinderGeometry(0.3, 1.8, 65, 12);
+    const southRoofGeo = new THREE.BoxGeometry(GAME.buildingWidth - 2, 4, GAME.buildingDepth - 2);
+
+    let audioCtx = null;
+    let windGain = null;
+    let windFilter = null;
+    let steerOsc = null;
+    let steerGain = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      audioCtx = new AudioContextClass();
+
+      const bufferSize = audioCtx.sampleRate * 2;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      windFilter = audioCtx.createBiquadFilter();
+      windFilter.type = "lowpass";
+      windFilter.frequency.value = 350;
+
+      windGain = audioCtx.createGain();
+      windGain.gain.value = 0.12;
+
+      whiteNoise.connect(windFilter);
+      windFilter.connect(windGain);
+      windGain.connect(audioCtx.destination);
+      whiteNoise.start();
+
+      steerOsc = audioCtx.createOscillator();
+      steerOsc.type = "sine";
+      steerOsc.frequency.value = 220;
+
+      steerGain = audioCtx.createGain();
+      steerGain.gain.value = 0.0;
+
+      steerOsc.connect(steerGain);
+      steerGain.connect(audioCtx.destination);
+      steerOsc.start();
+    }
+
+    function updateAudio(direction, shift) {
+      if (!audioCtx) return;
+      if (audioCtx.state === "suspended") audioCtx.resume();
+
+      const absDir = Math.abs(direction);
+      const targetGain = absDir > 0 ? (shift ? 0.18 : 0.1) : 0.0;
+      const targetFreq = 220 + absDir * (shift ? 240 : 120);
+
+      steerGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.08);
+      steerOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.08);
+
+      windFilter.frequency.setTargetAtTime(350 + absDir * 200, audioCtx.currentTime, 0.1);
+    }
+
+    function playExplosionSound() {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+
+      const bufferSize = audioCtx.sampleRate * 1.5;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.25));
+      }
+
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuffer;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(900, now);
+      filter.frequency.exponentialRampToValueAtTime(30, now + 1.2);
+
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(1.0, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      noise.start(now);
+
+      const sub = audioCtx.createOscillator();
+      const subGain = audioCtx.createGain();
+      sub.type = "triangle";
+      sub.frequency.setValueAtTime(130, now);
+      sub.frequency.exponentialRampToValueAtTime(22, now + 0.9);
+
+      subGain.gain.setValueAtTime(0.85, now);
+      subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.9);
+
+      sub.connect(subGain);
+      subGain.connect(audioCtx.destination);
+      sub.start(now);
+      sub.stop(now + 0.9);
+    }
+
+    const keys = Object.create(null);
+    window.addEventListener("keydown", (e) => {
+      keys[e.code] = true;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (isShopOpen) return;
+
+        initAudio();
+        if (gameState === "start" || gameState === "crashed") {
+          startGame();
+        }
+      }
+
+      if (e.code === "KeyQ") {
+        fireMissile();
+      }
+
+      if (e.code === "KeyE") {
+        if (gameState === "playing" && shieldsCount > 0) {
+          shieldsCount--;
+          shieldTimer += 10;
+          updateHUDUI();
+        }
+      }
+
+      if (e.code === "KeyF") {
+        if (gameState === "crashed") {
+          if (isShopOpen) {
+            closeShop();
+          } else {
+            openShop();
+          }
+        }
+      }
+    });
+    window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+
+    let bank = 0;
+    let pitch = 0;
+    const buildings = [];
+    const debrisPieces = [];
+
+    function updateHUDUI() {
+      hudMissiles.textContent = missilesCount;
+      hudShields.textContent = shieldsCount;
+
+      if (shieldTimer > 0) {
+        hudShieldTimer.style.display = "block";
+        shieldTimeSpan.textContent = shieldTimer.toFixed(1);
+      } else {
+        hudShieldTimer.style.display = "none";
+      }
+    }
+
+    function openShop() {
+      if (gameState !== "crashed") return;
+      isShopOpen = true;
+      shopModal.style.display = "block";
+      updateShopUI();
+    }
+
+    function closeShop() {
+      isShopOpen = false;
+      shopModal.style.display = "none";
+    }
+
+    function updateShopUI() {
+      shopPoints.textContent = score;
+      buyMissileBtn.textContent = `Buy (${missilePrice} Pts)`;
+      buyShieldBtn.textContent = `Buy (${shieldPrice} Pts)`;
+
+      buyMissileBtn.disabled = score < missilePrice;
+      buyShieldBtn.disabled = score < shieldPrice;
+    }
+
+    buyMissileBtn.addEventListener("click", () => {
+      if (score >= missilePrice) {
+        score -= missilePrice;
+        missilesCount++;
+        missilePrice += 15;
+        scoreElement.textContent = score;
+        updateShopUI();
+        updateHUDUI();
+      }
+    });
+
+    buyShieldBtn.addEventListener("click", () => {
+      if (score >= shieldPrice) {
+        score -= shieldPrice;
+        shieldsCount++;
+        shieldPrice += 20;
+        scoreElement.textContent = score;
+        updateShopUI();
+        updateHUDUI();
+      }
+    });
+
+    closeShopBtn.addEventListener("click", closeShop);
+
+    function createTowerMesh(isNorthTower) {
+      const towerGroup = new THREE.Group();
+
+      const mainBody = new THREE.Mesh(baseTowerGeo, facadeMat);
+      towerGroup.add(mainBody);
+
+      for (let y = -GAME.buildingHeight / 2 + 50; y < GAME.buildingHeight / 2; y += 75) {
+        const band = new THREE.Mesh(bandGeo, darkTrimMat);
+        band.position.y = y;
+        towerGroup.add(band);
+      }
+
+      const roofY = GAME.buildingHeight / 2;
+
+      if (isNorthTower) {
+        const t1 = new THREE.Mesh(northAntennaTier1, darkTrimMat);
+        t1.position.y = roofY + 2;
+        towerGroup.add(t1);
+
+        const t2 = new THREE.Mesh(northAntennaTier2, darkTrimMat);
+        t2.position.y = roofY + 4 + 5;
+        towerGroup.add(t2);
+
+        const spire = new THREE.Mesh(northSpireGeo, antennaMat);
+        spire.position.y = roofY + 9 + 32.5;
+        towerGroup.add(spire);
+      } else {
+        const observationDeck = new THREE.Mesh(southRoofGeo, darkTrimMat);
+        observationDeck.position.y = roofY + 2;
+        towerGroup.add(observationDeck);
+      }
+
+      return towerGroup;
+    }
+
+    function spawnSingleTower(posX, z, isNorthTower) {
+      const tower = createTowerMesh(isNorthTower);
+
+      const topElevation = THREE.MathUtils.randFloat(85, 130);
+      const posY = topElevation - (GAME.buildingHeight / 2);
+
+      tower.position.set(posX, posY, z);
+      world.add(tower);
+
+      buildings.push({
+        object: tower,
+        width: GAME.buildingWidth,
+        topElevation: topElevation,
+        depth: GAME.buildingDepth
+      });
+    }
+
+    function spawnPowerUp(z) {
+      if (Math.random() > 0.18) return;
+
+      const types = ['point', 'missile', 'shield'];
+      const type = types[Math.floor(Math.random() * types.length)];
+
+      let mat = pointMat;
+      if (type === 'missile') mat = missilePowerMat;
+      if (type === 'shield') mat = shieldPowerMat;
+
+      const pMesh = new THREE.Mesh(powerUpGeo, mat);
+      const ring = new THREE.Mesh(powerUpRingGeo, mat);
+      pMesh.add(ring);
+
+      const posX = THREE.MathUtils.randFloat(-GAME.maxX * 0.75, GAME.maxX * 0.75);
+      const posY = GAME.altitude;
+
+      pMesh.position.set(posX, posY, z - 80);
+      world.add(pMesh);
+
+      powerUps.push({
+        object: pMesh,
+        type: type,
+        ring: ring
+      });
+    }
+
+    function spawnBuildingPattern(z) {
+      const roll = Math.random();
+
+      if (roll < 0.35) {
+        const leftIsNorth = Math.random() < 0.5;
+        const offset = 32;
+        spawnSingleTower(-offset, z, leftIsNorth);
+        spawnSingleTower(offset, z, !leftIsNorth);
+      } else if (roll < 0.65) {
+        const isNorth = Math.random() < 0.5;
+        spawnSingleTower(0, z, isNorth);
+      } else {
+        const isNorth = Math.random() < 0.5;
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const posX = side * THREE.MathUtils.randFloat(24, 38);
+        spawnSingleTower(posX, z, isNorth);
+      }
+
+      spawnPowerUp(z);
+    }
+
+    function createInitialBuildings() {
+      for (let z = -300; z >= GAME.spawnZ; z -= GAME.spacing) {
+        spawnBuildingPattern(z);
+      }
+    }
+
+    function updateAircraft(delta) {
+      if (gameState !== "playing") return;
+
+      const left = keys["KeyA"] || keys["ArrowLeft"];
+      const right = keys["KeyD"] || keys["ArrowRight"];
+      const up = keys["KeyW"] || keys["ArrowUp"];
+      const down = keys["KeyS"] || keys["ArrowDown"];
+      const shift = keys["ShiftLeft"] || keys["ShiftRight"];
+
+      let direction = 0;
+      if (left) direction = -1;
+      if (right) direction = 1;
+
+      updateAudio(direction, shift);
+
+      const turnSpeed = shift ? GAME.moveSpeed * 1.5 : GAME.moveSpeed;
+
+      aircraftRoot.position.x += direction * turnSpeed * delta;
+      aircraftRoot.position.x = THREE.MathUtils.clamp(aircraftRoot.position.x, -GAME.maxX, GAME.maxX);
+
+      let targetBank = 0;
+      if (direction < 0) targetBank = THREE.MathUtils.degToRad(shift ? 90 : 45);
+      if (direction > 0) targetBank = THREE.MathUtils.degToRad(shift ? -90 : -45);
+
+      bank = THREE.MathUtils.lerp(bank, targetBank, Math.min(1, delta * 2.8));
+
+      let targetPitch = 0;
+      if (up) targetPitch = THREE.MathUtils.degToRad(8);
+      if (down) targetPitch = THREE.MathUtils.degToRad(-8);
+
+      pitch = THREE.MathUtils.lerp(pitch, targetPitch, Math.min(1, delta * 4.5));
+
+      aircraftRoot.rotation.order = "YXZ";
+      aircraftRoot.rotation.x = pitch;
+      aircraftRoot.rotation.y = 0;
+      aircraftRoot.rotation.z = bank;
+    }
+
+    function updateBuildings(delta) {
+      if (gameState !== "playing") return;
+
+      currentWorldSpeed = Math.min(
+        GAME.maxWorldSpeed,
+        GAME.baseWorldSpeed + (score * GAME.speedAcceleration)
+      );
+
+      const movement = currentWorldSpeed * delta;
+      for (const building of buildings) {
+        building.object.position.z += movement;
+      }
+
+      for (let i = buildings.length - 1; i >= 0; i--) {
+        const building = buildings[i];
+        if (building.object.position.z > GAME.despawnZ) {
+          world.remove(building.object);
+          buildings.splice(i, 1);
+          score += 5;
+          scoreElement.textContent = score;
+        }
+      }
+
+      let furthestZ = buildings.length ? Math.min(...buildings.map(b => b.object.position.z)) : 0;
+      if (buildings.length === 0 || furthestZ > GAME.spawnZ + GAME.spacing) {
+        spawnBuildingPattern(GAME.spawnZ);
+      }
+    }
+
+    function updatePowerUps(delta) {
+      if (gameState !== "playing") return;
+
+      const movement = currentWorldSpeed * delta;
+      const planePos = aircraftRoot.position;
+
+      for (let i = powerUps.length - 1; i >= 0; i--) {
+        const pu = powerUps[i];
+        pu.object.position.z += movement;
+        pu.object.rotation.y += delta * 2.5;
+        pu.ring.rotation.x += delta * 3.0;
+
+        const dx = Math.abs(planePos.x - pu.object.position.x);
+        const dy = Math.abs(planePos.y - pu.object.position.y);
+        const dz = Math.abs(planePos.z - pu.object.position.z);
+
+        if (dx < 9 && dy < 9 && dz < 9) {
+          if (pu.type === 'point') {
+            score += 50;
+            scoreElement.textContent = score;
+          } else if (pu.type === 'missile') {
+            missilesCount++;
+          } else if (pu.type === 'shield') {
+            shieldsCount++;
+          }
+
+          world.remove(pu.object);
+          powerUps.splice(i, 1);
+          updateHUDUI();
+          continue;
+        }
+
+        if (pu.object.position.z > GAME.despawnZ) {
+          world.remove(pu.object);
+          powerUps.splice(i, 1);
+        }
+      }
+    }
+
+    function fireMissile() {
+      if (gameState !== "playing" || missilesCount <= 0) return;
+
+      missilesCount--;
+      updateHUDUI();
+
+      const mMesh = new THREE.Mesh(missileGeo, missileMeshMat);
+      mMesh.position.copy(aircraftRoot.position);
+      world.add(mMesh);
+
+      activeMissiles.push(mMesh);
+    }
+
+    function updateMissiles(delta) {
+      if (gameState !== "playing") return;
+
+      const speed = 850 * delta;
+
+      for (let i = activeMissiles.length - 1; i >= 0; i--) {
+        const missile = activeMissiles[i];
+        missile.position.z -= speed;
+
+        let hit = false;
+        for (let j = buildings.length - 1; j >= 0; j--) {
+          const b = buildings[j];
+          const dx = Math.abs(missile.position.x - b.object.position.x);
+          const dz = Math.abs(missile.position.z - b.object.position.z);
+          const dy = missile.position.y;
+
+          if (dx < b.width / 2 + 3 && dz < b.depth / 2 + 6 && dy < b.topElevation) {
+            triggerBuildingExplosion(b.object.position.x, b.object.position.z);
+            world.remove(b.object);
+            buildings.splice(j, 1);
+
+            score += 20;
+            scoreElement.textContent = score;
+
+            hit = true;
+            break;
+          }
+        }
+
+        if (hit || missile.position.z < GAME.spawnZ - 200) {
+          world.remove(missile);
+          activeMissiles.splice(i, 1);
+        }
+      }
+    }
+
+    function triggerBuildingExplosion(x, z) {
+      playExplosionSound();
+
+      for (let i = 0; i < 18; i++) {
+        const geo = debrisGeos[i % debrisGeos.length];
+        const mat = debrisMats[i % debrisMats.length];
+        const p = new THREE.Mesh(geo, mat);
+
+        p.position.set(
+          x + THREE.MathUtils.randFloat(-10, 10),
+          GAME.altitude + THREE.MathUtils.randFloat(-8, 12),
+          z + THREE.MathUtils.randFloat(-10, 10)
+        );
+
+        const vel = new THREE.Vector3(
+          THREE.MathUtils.randFloat(-50, 50),
+          THREE.MathUtils.randFloat(-10, 40),
+          THREE.MathUtils.randFloat(-50, 50)
+        );
+
+        const rotVel = new THREE.Vector3(
+          THREE.MathUtils.randFloat(-8, 8),
+          THREE.MathUtils.randFloat(-8, 8),
+          THREE.MathUtils.randFloat(-8, 8)
+        );
+
+        debrisGroup.add(p);
+        debrisPieces.push({ mesh: p, vel, rotVel, life: 1.1 });
+      }
+    }
+
+    function triggerDismantleExplosion() {
+      if (aircraft) aircraft.visible = false;
+      playExplosionSound();
+
+      const pos = aircraftRoot.position.clone();
+
+      for (let i = 0; i < 16; i++) {
+        const geo = debrisGeos[i % debrisGeos.length];
+        const mat = debrisMats[i % debrisMats.length];
+        const p = new THREE.Mesh(geo, mat);
+
+        p.position.copy(pos).add(new THREE.Vector3(
+          THREE.MathUtils.randFloat(-2, 2),
+          THREE.MathUtils.randFloat(-1, 2),
+          THREE.MathUtils.randFloat(-2, 2)
+        ));
+
+        const vel = new THREE.Vector3(
+          THREE.MathUtils.randFloat(-40, 40),
+          THREE.MathUtils.randFloat(10, 50),
+          THREE.MathUtils.randFloat(-30, 30)
+        );
+
+        const rotVel = new THREE.Vector3(
+          THREE.MathUtils.randFloat(-10, 10),
+          THREE.MathUtils.randFloat(-10, 10),
+          THREE.MathUtils.randFloat(-10, 10)
+        );
+
+        debrisGroup.add(p);
+        debrisPieces.push({ mesh: p, vel, rotVel, life: 1.0 });
+      }
+    }
+
+    function updateDebris(delta) {
+      for (let i = debrisPieces.length - 1; i >= 0; i--) {
+        const item = debrisPieces[i];
+        item.vel.y -= 50 * delta;
+        item.mesh.position.addScaledVector(item.vel, delta);
+        item.mesh.rotation.x += item.rotVel.x * delta;
+        item.mesh.rotation.y += item.rotVel.y * delta;
+        item.mesh.rotation.z += item.rotVel.z * delta;
+
+        item.life -= delta * 0.9;
+        if (item.life <= 0) {
+          debrisGroup.remove(item.mesh);
+          debrisPieces.splice(i, 1);
+        }
+      }
+    }
+
+    function checkCollision() {
+      if (!aircraft || gameState !== "playing") return;
+
+      const px = aircraftRoot.position.x;
+      const py = aircraftRoot.position.y;
+
+      const currentRoll = Math.abs(bank);
+      const isKnifed = currentRoll > THREE.MathUtils.degToRad(65);
+      const effectiveHitWidth = isKnifed ? 4 : GAME.collisionWidth;
+
+      for (let i = buildings.length - 1; i >= 0; i--) {
+        const building = buildings[i];
+        const object = building.object;
+        const dx = Math.abs(px - object.position.x);
+        const dz = Math.abs(object.position.z);
+
+        const horizontalHit = dx < (building.width / 2 + effectiveHitWidth);
+        const depthHit = dz < (building.depth / 2 + GAME.collisionDepth);
+        const verticalHit = py < building.topElevation;
+
+        if (horizontalHit && depthHit && verticalHit) {
+          if (shieldTimer > 0) {
+            triggerBuildingExplosion(object.position.x, object.position.z);
+            world.remove(object);
+            buildings.splice(i, 1);
+            score += 15;
+            scoreElement.textContent = score;
+            return;
+          }
+
+          gameState = "crashed";
+          updateAudio(0, false);
+          triggerDismantleExplosion();
+
+          titleText.innerHTML = '<span style="color:#e74c3c;">C</span><span style="color:#111111;">RASH!</span>';
+          subtitleText.innerHTML = "Press <strong>Space</strong> to Retry &nbsp;|&nbsp; Press <strong>F</strong> for Shop";
+          uiCard.style.display = "block";
+          return;
+        }
+      }
+    }
+
+    function startGame() {
+      closeShop();
+
+      for (const building of buildings) {
+        world.remove(building.object);
+      }
+      buildings.length = 0;
+
+      for (const pu of powerUps) {
+        world.remove(pu.object);
+      }
+      powerUps.length = 0;
+
+      for (const m of activeMissiles) {
+        world.remove(m);
+      }
+      activeMissiles.length = 0;
+
+      for (const item of debrisPieces) {
+        debrisGroup.remove(item.mesh);
+      }
+      debrisPieces.length = 0;
+
+      if (aircraft) aircraft.visible = true;
+
+      aircraftRoot.position.set(0, GAME.altitude, 0);
+      aircraftRoot.rotation.set(0, 0, 0);
+      bank = 0;
+      pitch = 0;
+      score = 0;
+      shieldTimer = 0;
+      currentWorldSpeed = GAME.baseWorldSpeed;
+      scoreElement.textContent = "0";
+
+      updateHUDUI();
+      createInitialBuildings();
+      gameState = "playing";
+      uiCard.style.display = "none";
+    }
+
+    function updateCamera(delta) {
+      if (!aircraftRoot) return;
+
+      const targetCamX = aircraftRoot.position.x * 0.85;
+      const targetCamY = aircraftRoot.position.y + 14;
+      const targetCamZ = aircraftRoot.position.z + 58;
+
+      const smoothing = Math.min(1, delta * 6);
+
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, smoothing);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, smoothing);
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, smoothing);
+
+      const lookTarget = new THREE.Vector3(
+        aircraftRoot.position.x * 0.85,
+        aircraftRoot.position.y + 2,
+        aircraftRoot.position.z - 80
+      );
+
+      camera.lookAt(lookTarget);
+    }
+
+    function createFallbackAircraft() {
+      const group = new THREE.Group();
+
+      const bodyGeo = new THREE.ConeGeometry(1.2, 12, 16);
+      bodyGeo.rotateX(Math.PI / 2);
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2980b9, metalness: 0.5, roughness: 0.3 });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      group.add(body);
+
+      const wingGeo = new THREE.BoxGeometry(12, 0.2, 2.5);
+      const wingMat = new THREE.MeshStandardMaterial({ color: 0xecf0f1, metalness: 0.2, roughness: 0.4 });
+      const wings = new THREE.Mesh(wingGeo, wingMat);
+      wings.position.set(0, 0, -0.5);
+      group.add(wings);
+
+      const tailGeo = new THREE.BoxGeometry(0.2, 2.2, 1.8);
+      const tail = new THREE.Mesh(tailGeo, bodyMat);
+      tail.position.set(0, 1.3, 4.5);
+      group.add(tail);
+
+      return group;
+    }
+
+    function onAircraftReady() {
+      gameState = "start";
+      titleText.innerHTML = '<span style="color:#e74c3c;">9</span><span style="color:#111111;">11</span>';
+      subtitleText.textContent = "Press Space to Start";
+      updateHUDUI();
+    }
+
+    aircraftRoot.position.set(0, GAME.altitude, 0);
+
+    const fallbackJet = createFallbackAircraft();
+    aircraftRoot.add(fallbackJet);
+    aircraft = fallbackJet;
+
+    const MODEL_URL = "./source/untitled.glb";
+    const loader = new GLTFLoader();
+
+    loader.load(
+      MODEL_URL,
+      (gltf) => {
+        if (fallbackJet) {
+          aircraftRoot.remove(fallbackJet);
+        }
+
+        const loadedAircraft = gltf.scene;
+
+        loadedAircraft.traverse((object) => {
+          if (object.isMesh) {
+            object.castShadow = true;
+            object.receiveShadow = true;
+            if (object.material) {
+              const materials = Array.isArray(object.material) ? object.material : [object.material];
+              for (const material of materials) {
+                if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
+                material.needsUpdate = true;
+              }
+            }
+          }
+        });
+
+        const rawBox = new THREE.Box3().setFromObject(loadedAircraft);
+        const rawCenter = rawBox.getCenter(new THREE.Vector3());
+        const rawSize = rawBox.getSize(new THREE.Vector3());
+        const rawMax = Math.max(rawSize.x, rawSize.y, rawSize.z);
+
+        const TARGET_SIZE = 14;
+        const scale = rawMax > 0 ? TARGET_SIZE / rawMax : 1;
+
+        const pivot = new THREE.Group();
+        loadedAircraft.scale.setScalar(scale);
+        loadedAircraft.position.set(
+          -rawCenter.x * scale,
+          -rawCenter.y * scale,
+          -rawCenter.z * scale
+        );
+        loadedAircraft.rotation.y = Math.PI;
+        pivot.add(loadedAircraft);
+
+        aircraft = pivot;
+        aircraftRoot.add(aircraft);
+
+        onAircraftReady();
+      },
+      (progress) => {
+        if (progress.total > 0) {
+          const percent = (progress.loaded / progress.total) * 100;
+          titleText.textContent = "Loading Aircraft...";
+          subtitleText.textContent = percent.toFixed(0) + "%";
+        }
+      },
+      (error) => {
+        console.warn("GLB load failed, using fallback jet mesh:", error);
+        onAircraftReady();
+      }
+    );
+
+    createInitialBuildings();
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = Math.min(clock.getDelta(), 0.033);
+
+      if (gameState === "playing" && shieldTimer > 0) {
+        shieldTimer -= delta;
+        if (shieldTimer < 0) shieldTimer = 0;
+        shieldMesh.visible = true;
+        shieldMesh.rotation.y += delta * 2;
+        updateHUDUI();
+      } else {
+        shieldMesh.visible = false;
+      }
+
+      updateAircraft(delta);
+      updateBuildings(delta);
+      updatePowerUps(delta);
+      updateMissiles(delta);
+      checkCollision();
+      updateDebris(delta);
+
+      updateCamera(delta);
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
