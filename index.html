@@ -698,7 +698,7 @@
       const ring = new THREE.Mesh(powerUpRingGeo, mat);
       pMesh.add(ring);
 
-      const posX = THREE.MathUtils.randFloat(-GAME.maxX * 0.75, GAME.maxX * 0.75);
+      const posX = THREE.MathUtils.randFloat(-GAME.maxX * 0.9, GAME.maxX * 0.9);
       const posY = GAME.altitude;
 
       pMesh.position.set(posX, posY, z - 80);
@@ -714,19 +714,26 @@
     function spawnBuildingPattern(z) {
       const roll = Math.random();
 
-      if (roll < 0.35) {
+      if (roll < 0.25) {
         const leftIsNorth = Math.random() < 0.5;
-        const offset = 32;
+        const offset = THREE.MathUtils.randFloat(35, 48);
         spawnSingleTower(-offset, z, leftIsNorth);
         spawnSingleTower(offset, z, !leftIsNorth);
-      } else if (roll < 0.65) {
-        const isNorth = Math.random() < 0.5;
-        spawnSingleTower(0, z, isNorth);
-      } else {
+      } else if (roll < 0.50) {
         const isNorth = Math.random() < 0.5;
         const side = Math.random() < 0.5 ? -1 : 1;
-        const posX = side * THREE.MathUtils.randFloat(24, 38);
+        const posX = side * THREE.MathUtils.randFloat(40, 52);
         spawnSingleTower(posX, z, isNorth);
+      } else if (roll < 0.75) {
+        const isNorth = Math.random() < 0.5;
+        const posX = THREE.MathUtils.randFloat(-22, 22);
+        spawnSingleTower(posX, z, isNorth);
+      } else {
+        const isNorth = Math.random() < 0.5;
+        const pos1 = THREE.MathUtils.randFloat(-48, -15);
+        const pos2 = THREE.MathUtils.randFloat(15, 48);
+        spawnSingleTower(pos1, z, isNorth);
+        spawnSingleTower(pos2, z, !isNorth);
       }
 
       spawnPowerUp(z);
